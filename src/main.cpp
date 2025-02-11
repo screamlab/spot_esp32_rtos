@@ -23,13 +23,21 @@
 
 rclc_support_t support;
 rcl_node_t node;
-rcl_timer_t timer;
-rclc_executor_t executor;
 rcl_allocator_t allocator;
+
+// publisher
+rclc_executor_t executor_pub;
 rcl_publisher_t publisher;
+rcl_timer_t timer;
+
+// subscriber
+rclc_executor_t executor_sub;
 rcl_subscription_t subscriber;
-std_msgs__msg__Int32 msg;
+
+const unsigned int SPOT_MOTOR_ANGLES_SIZE = 12;
 trajectory_msgs__msg__JointTrajectoryPoint spot_motor_angles;
+double spot_motor_angles_data[SPOT_MOTOR_ANGLES_SIZE] = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
+                                                          0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
 bool micro_ros_init_successful;
 
@@ -42,12 +50,27 @@ enum states {
 
 #define SPOT_MOTOR_ANGLES_SIZE 12
 const char* spotMotorAnglesTopic = "spot_motor_angles";
+const char* spotActionTopic = "spot_actions";
 
 void timer_callback(rcl_timer_t * timer, int64_t last_call_time)
 {
   RCLC_UNUSED(last_call_time);
   if (timer != NULL) {
+    for (int i = 0; i < SPOT_MOTOR_ANGLES_SIZE; i++) {
+      spot_motor_angles.positions.data[i] = spot_motor_angles_data[i];
+    }
     RCSOFTCHECK(rcl_publish(&publisher, &spot_motor_angles, NULL));
+  }
+}
+
+void subscription_callback(const void * msgin)
+{
+  // Cast received message to used type
+  const trajectory_msgs__msg__JointTrajectoryPoint * msg = (const trajectory_msgs__msg__JointTrajectoryPoint *)msgin;
+
+  // Process message
+  for (int i = 0; i < SPOT_MOTOR_ANGLES_SIZE; i++) {
+    spot_motor_angles_data[i] = msg->positions.data[i];
   }
 }
 
@@ -60,25 +83,25 @@ bool create_entities()
 {
   allocator = rcl_get_default_allocator();
 
-  // create init_options
+  // Create init_options
   RCCHECK(rclc_support_init(&support, 0, NULL, &allocator));
 
-  // create node
+  // Create node
   RCCHECK(rclc_node_init_default(&node, "spot_publisher_rclc", "", &support));
 
-  // Initialize Executor with enough handles (1 for timer, add more if needed)
-  executor = rclc_executor_get_zero_initialized_executor();
-  RCCHECK(rclc_executor_init(&executor, &support.context, 1, &allocator));
 
-  // Create Publisher (Best Effort QoS)
+  // === Initialize Publisher ===
+  executor_pub = rclc_executor_get_zero_initialized_executor();
+  RCCHECK(rclc_executor_init(&executor_pub, &support.context, 1, &allocator));
+
   RCCHECK(rclc_publisher_init_best_effort(
     &publisher,
     &node,
     ROSIDL_GET_MSG_TYPE_SUPPORT(trajectory_msgs, msg, JointTrajectoryPoint),
     spotMotorAnglesTopic));
 
-  // Create Timer (1-second interval)
-  const unsigned int timer_timeout = 1000; // milliseconds
+  // Initialize Timer
+  const unsigned int timer_timeout = 1000; // 1-second interval
   RCCHECK(rclc_timer_init_default(
     &timer,
     &support,
@@ -86,7 +109,20 @@ bool create_entities()
     timer_callback));
 
   // Add timer to executor
-  RCCHECK(rclc_executor_add_timer(&executor, &timer));
+  RCCHECK(rclc_executor_add_timer(&executor_pub, &timer));
+
+  // === Initialize Subscriber ===
+  executor_sub = rclc_executor_get_zero_initialized_executor();
+  RCCHECK(rclc_executor_init(&executor_sub, &support.context, 1, &allocator));
+
+  RCCHECK(rclc_subscription_init_default(
+    &subscriber,
+    &node,
+    ROSIDL_GET_MSG_TYPE_SUPPORT(trajectory_msgs, msg, JointTrajectoryPoint),
+    spotActionTopic));
+
+  // Add subscriber to executor
+  RCCHECK(rclc_executor_add_subscription(&executor_sub, &subscriber, &spot_motor_angles, &subscription_callback, ON_NEW_DATA));
   
   // Allocate memory for message (Motor Angles)
   spot_motor_angles.positions.capacity = SPOT_MOTOR_ANGLES_SIZE;
@@ -110,7 +146,8 @@ void destroy_entities()
   // Free publisher resources
   RCSOFTCHECK(rcl_publisher_fini(&publisher, &node));
   RCSOFTCHECK(rcl_timer_fini(&timer));
-  RCSOFTCHECK(rclc_executor_fini(&executor));
+  RCSOFTCHECK(rclc_executor_fini(&executor_pub));
+  RCSOFTCHECK(rclc_executor_fini(&executor_sub));
   RCSOFTCHECK(rcl_node_fini(&node));
   RCSOFTCHECK(rclc_support_fini(&support));
 
@@ -129,7 +166,6 @@ void setup() {
 
   state = WAITING_AGENT;
 
-  msg.data = 0;
 
   Serial.println("Starting micro-ROS...");
 }
@@ -148,7 +184,8 @@ void loop() {
     case AGENT_CONNECTED:
       EXECUTE_EVERY_N_MS(200, state = (RMW_RET_OK == rmw_uros_ping_agent(500, 1)) ? AGENT_CONNECTED : AGENT_DISCONNECTED;);
       if (state == AGENT_CONNECTED) {
-        rclc_executor_spin_some(&executor, RCL_MS_TO_NS(100));
+        rclc_executor_spin_some(&executor_pub, RCL_MS_TO_NS(100));
+        rclc_executor_spin_some(&executor_sub, RCL_MS_TO_NS(100));
       }
       break;
     case AGENT_DISCONNECTED:
