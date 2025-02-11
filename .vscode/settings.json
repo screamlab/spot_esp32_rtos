@@ -6,6 +6,23 @@
         "string": "cpp",
         "vector": "cpp",
         "string_view": "cpp",
-        "functional": "cpp"
+        "functional": "cpp",
+        "array": "cpp",
+        "bitset": "cpp",
+        "chrono": "cpp",
+        "cinttypes": "cpp",
+        "condition_variable": "cpp",
+        "cstdlib": "cpp",
+        "exception": "cpp",
+        "system_error": "cpp",
+        "future": "cpp",
+        "initializer_list": "cpp",
+        "locale": "cpp",
+        "numeric": "cpp",
+        "streambuf": "cpp",
+        "thread": "cpp",
+        "regex": "cpp",
+        "tuple": "cpp",
+        "typeinfo": "cpp"
     }
 }

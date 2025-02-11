@@ -10,6 +10,7 @@
 
 #include <std_msgs/msg/int32.h>
 #include <std_msgs/msg/float32_multi_array.h>
+#include <trajectory_msgs/msg/joint_trajectory_point.h>
 
 #define LED_PIN 2
 #define RCCHECK(fn) { rcl_ret_t temp_rc = fn; if((temp_rc != RCL_RET_OK)){return false;}}
@@ -26,8 +27,9 @@ rcl_timer_t timer;
 rclc_executor_t executor;
 rcl_allocator_t allocator;
 rcl_publisher_t publisher;
+rcl_subscription_t subscriber;
 std_msgs__msg__Int32 msg;
-std_msgs__msg__Float32MultiArray spot_motor_angles[12];
+trajectory_msgs__msg__JointTrajectoryPoint* spot_motor_angles;
 
 bool micro_ros_init_successful;
 
@@ -37,6 +39,9 @@ enum states {
   AGENT_CONNECTED,
   AGENT_DISCONNECTED
 } state;
+
+#define SPOT_MOTOR_ANGLES_SIZE 12
+const char* spotMotorAnglesTopic = "spot_motor_angles";
 
 void timer_callback(rcl_timer_t * timer, int64_t last_call_time)
 {
@@ -60,14 +65,14 @@ bool create_entities()
   RCCHECK(rclc_support_init(&support, 0, NULL, &allocator));
 
   // create node
-  RCCHECK(rclc_node_init_default(&node, "int32_publisher_rclc", "", &support));
+  RCCHECK(rclc_node_init_default(&node, "spot_publisher_rclc", "", &support));
 
   // create publisher
   RCCHECK(rclc_publisher_init_best_effort(
     &publisher,
     &node,
-    ROSIDL_GET_MSG_TYPE_SUPPORT(std_msgs, msg, Int32),
-    "std_msgs_msg_Int32"));
+    ROSIDL_GET_MSG_TYPE_SUPPORT(trajectory_msgs, msg, JointTrajectoryPoint),
+    spotMotorAnglesTopic));
 
   // create timer,
   const unsigned int timer_timeout = 1000;
