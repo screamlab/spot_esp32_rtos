@@ -29,7 +29,7 @@ rcl_allocator_t allocator;
 rcl_publisher_t publisher;
 rcl_subscription_t subscriber;
 std_msgs__msg__Int32 msg;
-trajectory_msgs__msg__JointTrajectoryPoint* spot_motor_angles;
+trajectory_msgs__msg__JointTrajectoryPoint spot_motor_angles;
 
 bool micro_ros_init_successful;
 
@@ -47,8 +47,7 @@ void timer_callback(rcl_timer_t * timer, int64_t last_call_time)
 {
   RCLC_UNUSED(last_call_time);
   if (timer != NULL) {
-    RCSOFTCHECK(rcl_publish(&publisher, &msg, NULL));
-    msg.data++;
+    RCSOFTCHECK(rcl_publish(&publisher, &spot_motor_angles, NULL));
   }
 }
 
@@ -74,7 +73,7 @@ bool create_entities()
     ROSIDL_GET_MSG_TYPE_SUPPORT(trajectory_msgs, msg, JointTrajectoryPoint),
     spotMotorAnglesTopic));
 
-  // create timer,
+    // create timer,
   const unsigned int timer_timeout = 1000;
   RCCHECK(rclc_timer_init_default(
     &timer,
@@ -86,7 +85,11 @@ bool create_entities()
   executor = rclc_executor_get_zero_initialized_executor();
   RCCHECK(rclc_executor_init(&executor, &support.context, 1, &allocator));
   RCCHECK(rclc_executor_add_timer(&executor, &timer));
-
+  
+  // create message
+  spot_motor_angles.positions.capacity = SPOT_MOTOR_ANGLES_SIZE;
+  spot_motor_angles.positions.size = SPOT_MOTOR_ANGLES_SIZE;
+  spot_motor_angles.positions.data = (double*)calloc(SPOT_MOTOR_ANGLES_SIZE, sizeof(double));
   return true;
 }
 
@@ -101,6 +104,9 @@ void destroy_entities()
   RCSOFTCHECK(rclc_executor_fini(&executor));
   RCSOFTCHECK(rcl_node_fini(&node));
   RCSOFTCHECK(rclc_support_fini(&support));
+
+  // free message
+  free(spot_motor_angles.positions.data);
 }
 
 void setup() {
