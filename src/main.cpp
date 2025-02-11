@@ -66,47 +66,59 @@ bool create_entities()
   // create node
   RCCHECK(rclc_node_init_default(&node, "spot_publisher_rclc", "", &support));
 
-  // create publisher
+  // Initialize Executor with enough handles (1 for timer, add more if needed)
+  executor = rclc_executor_get_zero_initialized_executor();
+  RCCHECK(rclc_executor_init(&executor, &support.context, 1, &allocator));
+
+  // Create Publisher (Best Effort QoS)
   RCCHECK(rclc_publisher_init_best_effort(
     &publisher,
     &node,
     ROSIDL_GET_MSG_TYPE_SUPPORT(trajectory_msgs, msg, JointTrajectoryPoint),
     spotMotorAnglesTopic));
 
-    // create timer,
-  const unsigned int timer_timeout = 1000;
+  // Create Timer (1-second interval)
+  const unsigned int timer_timeout = 1000; // milliseconds
   RCCHECK(rclc_timer_init_default(
     &timer,
     &support,
     RCL_MS_TO_NS(timer_timeout),
     timer_callback));
 
-  // create executor
-  executor = rclc_executor_get_zero_initialized_executor();
-  RCCHECK(rclc_executor_init(&executor, &support.context, 1, &allocator));
+  // Add timer to executor
   RCCHECK(rclc_executor_add_timer(&executor, &timer));
   
-  // create message
+  // Allocate memory for message (Motor Angles)
   spot_motor_angles.positions.capacity = SPOT_MOTOR_ANGLES_SIZE;
   spot_motor_angles.positions.size = SPOT_MOTOR_ANGLES_SIZE;
   spot_motor_angles.positions.data = (double*)calloc(SPOT_MOTOR_ANGLES_SIZE, sizeof(double));
-  return true;
+  
+  // Check if memory allocation was successful
+  if (spot_motor_angles.positions.data == NULL) {
+    return false;
+  }
+
+  return true; // successfully created entities
 }
 
 void destroy_entities()
 {
+  // Set session destroy timeout to 0
   rmw_context_t * rmw_context = rcl_context_get_rmw_context(&support.context);
   (void) rmw_uros_set_context_entity_destroy_session_timeout(rmw_context, 0);
 
-  // free publisher resources
+  // Free publisher resources
   RCSOFTCHECK(rcl_publisher_fini(&publisher, &node));
   RCSOFTCHECK(rcl_timer_fini(&timer));
   RCSOFTCHECK(rclc_executor_fini(&executor));
   RCSOFTCHECK(rcl_node_fini(&node));
   RCSOFTCHECK(rclc_support_fini(&support));
 
-  // free message
-  free(spot_motor_angles.positions.data);
+  // Free allocated memory for message
+  if (spot_motor_angles.positions.data != NULL) {
+    free(spot_motor_angles.positions.data);
+    spot_motor_angles.positions.data = NULL;  // Prevent dangling pointer
+  }
 }
 
 void setup() {
