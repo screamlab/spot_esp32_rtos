@@ -38,8 +38,8 @@ rcl_subscription_t subscriber;
 
 const unsigned int SPOT_MOTOR_ANGLES_SIZE = 12;
 trajectory_msgs__msg__JointTrajectoryPoint spot_motor_angles;
-double spot_motor_angles_data[SPOT_MOTOR_ANGLES_SIZE] = { 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-                                                          0.0, 0.0, 0.0, 0.0, 0.0, 0.0 };
+double spot_motor_angles_data[SPOT_MOTOR_ANGLES_SIZE] = { 90.0, 90.0, 90.0, 90.0, 90.0, 90.0,
+                                                          90.0, 90.0, 90.0, 90.0, 90.0, 90.0};
 
 bool micro_ros_init_successful;
 
