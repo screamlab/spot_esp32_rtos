@@ -13,8 +13,8 @@
 #define UPDATE_ARM_DELAY 0.01
 const float ARM_MOVEMENT_STEP = 1.0;
 const size_t NUM_OF_SERVOS = 12;
-const uint8_t servoMinAngles[] = {80, 0, 30, 80, 30, 0, 80, 30, 0, 80, 0, 30};
-const uint8_t servoMaxAngles[] = {100, 150, 180, 100, 180, 150, 100, 180, 150, 100, 150, 180};
+const uint8_t servoMinAngles[] = {80, 0, 0, 80, 0, 0, 80, 0, 0, 80, 0, 0};
+const uint8_t servoMaxAngles[] = {100, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180, 180};
 const uint8_t servoInitAngles[] = {90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90, 90};
 
 enum states {
