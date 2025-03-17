@@ -38,8 +38,8 @@ rcl_subscription_t subscriber;
 
 const unsigned int SPOT_MOTOR_ANGLES_SIZE = 12;
 trajectory_msgs__msg__JointTrajectoryPoint spot_motor_angles;
-double spot_motor_angles_data[SPOT_MOTOR_ANGLES_SIZE] = { 90.0, 90.0, 90.0, 90.0, 90.0, 90.0,
-                                                          90.0, 90.0, 90.0, 90.0, 90.0, 90.0};
+double spot_motor_angles_data[SPOT_MOTOR_ANGLES_SIZE] = { 90.0, 180.0, 0.0, 90.0, 0.0, 180.0,
+                                                          90.0, 0.0, 180.0, 90.0, 180.0, 0.0};
 
 bool micro_ros_init_successful;
 
@@ -59,6 +59,15 @@ void timer_callback(rcl_timer_t * timer, int64_t last_call_time)
   }
 }
 
+double calibrate_motor_angles(int index, double angle)
+{
+  double lower = offsetr_lower[index];
+  double upper = offsetr_upper[index];
+
+  // map angle from 0~180 to lower~upper
+  return angle * (upper - lower) / 180.0 + lower;
+}
+
 void subscription_callback(const void * msgin)
 {
   // Cast received message to used type
@@ -66,7 +75,7 @@ void subscription_callback(const void * msgin)
 
   // Process message
   for (int i = 0; i < SPOT_MOTOR_ANGLES_SIZE; i++) {
-    spot_motor_angles_data[i] = degrees(msg->positions.data[i]);
+    spot_motor_angles_data[i] = calibrate_motor_angles(i, degrees(msg->positions.data[i]));
   }
 }
 
